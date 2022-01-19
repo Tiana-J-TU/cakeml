@@ -151,16 +151,6 @@ Proof
      unabbrev_all_tac >> simp []
 QED
 
-simp[Once evaluate_def]         
-simp [eval_def]
-simp [eval_def, wordLangTheory.word_op_def]
-simp [eval_def, OPT_MMAP_def, wordLangTheory.word_op_def, FLOOKUP_UPDATE]
-simp [OPT_MMAP_def]
-simp [wordLangTheory.word_op_def]
-simp [eval_def, OPTION_BIND_def]
-simp[eval_def, FLOOKUP_UPDATE] >>
-simp [OPTION_MAP_DEF]
-simp [fcpTheory.dimindex_def, wordLangTheory.word_sh_def]
 
 Theorem uart_drv_getcharFun_no_error:
   ∀ck be mem memaddrs ffi base_addr res s.
