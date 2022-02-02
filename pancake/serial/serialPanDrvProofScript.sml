@@ -512,4 +512,112 @@ QED
 
 
                   
+QED  
+
+Theorem uart_drv_getcharFun_no_FinalFFI:
+  ∀ck be mem memaddrs ffi base_addr.
+    (∀x x'. case call_FFI ffi "read_reg_UTRSTAT" x x' of
+                FFI_final _ => F
+              | FFI_return f _ =>
+                  (∀f' x x'. call_FFI f "read_reg_URXH" x x' ≠ FFI_final f')) ⇒
+    case evaluate (Call Tail (Label (strlit "uart_drv_getchar")) [],
+               uart_init_state ck be mem memaddrs ffi base_addr) of
+      (SOME (FinalFFI _),s') => F
+    | _ => T
+Proof
+  rpt strip_tac >>
+  simp[Once evaluate_def,uart_init_state_def,serialProg_def,
+       uart_drv_getcharFun_def, uart_drv_putcharFun_def] >>
+  simp[Once eval_def,flookup_fupdate_list,ALOOKUP_def,OPT_MMAP_def,
+       lookup_code_def] >>
+  IF_CASES_TAC >- simp[] >>
+  simp[dec_clock_def] >>
+  simp[Once evaluate_def] >>
+  simp[Once eval_def] >>
+  qmatch_goalsub_abbrev_tac ‘a1 (evaluate _)’ >>
+  simp[Once evaluate_def] >>
+  simp[eval_def,OPT_MMAP_def,wordLangTheory.word_op_def] >>
+  qmatch_goalsub_abbrev_tac ‘a2 (evaluate _)’ >>
+  simp[Once evaluate_def,eval_def] >>
+  qmatch_goalsub_abbrev_tac ‘a3 (evaluate _)’ >>
+  simp[Once evaluate_def,eval_def] >>
+  qmatch_goalsub_abbrev_tac ‘a4 (evaluate _)’ >>
+  simp[Once evaluate_def,eval_def] >>
+  qmatch_goalsub_abbrev_tac ‘a5 (evaluate _)’ >>
+  simp[Once evaluate_def,eval_def] >>
+  qmatch_goalsub_abbrev_tac ‘a6 (evaluate _)’ >>
+  simp[Once evaluate_def,FLOOKUP_UPDATE] >>
+  CASE_TAC
+  >- (CASE_TAC >> unabbrev_all_tac >> fs[])
+  >> CASE_TAC >-(unabbrev_all_tac >> fs[]) >>
+  fs[] >> CASE_TAC
+  >- (simp[]>>unabbrev_all_tac >> fs[]>>
+      fs[OPTION_MAP_DEF, OPTION_BIND_def, FLOOKUP_UPDATE,
+         wordLangTheory.word_sh_def, wordLangTheory.word_op_def,
+         OPT_MMAP_def, eval_def, evaluate_def]>>
+      CASE_TAC>>fs[FLOOKUP_UPDATE]>>
+      CASE_TAC>>fs[FLOOKUP_UPDATE]>>
+      CASE_TAC>>fs[FLOOKUP_UPDATE]>>
+      CASE_TAC>>fs[FLOOKUP_UPDATE]>>
+      CASE_TAC>>fs[FLOOKUP_UPDATE]>>
+      qpat_abbrev_tac ‘case_term = mem_load One (_ + _) _ _’>>
+      Cases_on ‘case_term’>>fs[]>>
+      CASE_TAC>>fs[]>>
+      CASE_TAC>>fs[]>>
+      IF_CASES_TAC>>fs[]>>
+      fs[evaluate_def,eval_def,FLOOKUP_UPDATE]>>
+      CASE_TAC>>fs[]>>
+      CASE_TAC>>fs[]>>
+      CASE_TAC>>fs[FLOOKUP_UPDATE]
+      >-(CASE_TAC>>fs[shape_of_def, size_of_shape_def])>>
+      rename1 ‘call_FFI _ _ x' x = FFI_return f l’>>
+      first_assum(qspecl_then [‘x'’, ‘x’] assume_tac)>>
+      FULL_CASE_TAC>>fs[]>>
+      simp[Once evaluate_def]>>fs[eval_def, FLOOKUP_UPDATE]>>
+      simp[shape_of_def, size_of_shape_def])>>
+  unabbrev_all_tac >> gs[]>>
+  rename1 ‘call_FFI _ _ x' x = FFI_final _’>>
+  first_assum(qspecl_then [‘x'’, ‘x’] assume_tac)>> FULL_CASE_TAC>>gs[]
+QED
+
+Theorem uart_drv_getcharFun_no_None:
+  ∀ck be mem memaddrs ffi base_addr res s.
+    IS_SOME(read_bytearray base_addr 8 (mem_load_byte mem memaddrs be)) ∧
+    IS_SOME(read_bytearray (base_addr + 64w) 32
+                           (mem_load_byte mem memaddrs be)) ⇒
+    case evaluate (Call Tail (Label (strlit "uart_drv_getchar")) [],
+               uart_init_state ck be mem memaddrs ffi base_addr) of
+      (NONE : 64 result option,s') => F
+    | _ => T
+Proof
+  rpt strip_tac >>
+  simp[Once evaluate_def,uart_init_state_def,serialProg_def,
+       uart_drv_getcharFun_def, uart_drv_putcharFun_def] >>
+  simp[Once eval_def,flookup_fupdate_list,ALOOKUP_def,
+       OPT_MMAP_def,lookup_code_def] >>
+  IF_CASES_TAC >- fs[] >>
+  simp[dec_clock_def] >>
+  simp[evaluate_def, eval_def,OPT_MMAP_def,wordLangTheory.word_op_def,
+       FLOOKUP_UPDATE] >>
+  CASE_TAC >> fs[] >>
+  CASE_TAC >> fs[] >>
+  CASE_TAC>>fs[]>>
+  CASE_TAC>>fs[FLOOKUP_UPDATE]>>
+  CASE_TAC>>fs[FLOOKUP_UPDATE]>>
+  CASE_TAC>>fs[FLOOKUP_UPDATE]>>
+  CASE_TAC>>fs[FLOOKUP_UPDATE]>>
+  CASE_TAC>>fs[FLOOKUP_UPDATE]>>
+  fs[OPTION_MAP_DEF, OPTION_BIND_def, wordLangTheory.word_sh_def]>>
+  qpat_abbrev_tac ‘case_term = mem_load One (_ + _) _ _’>>
+  Cases_on ‘case_term’ >>fs[]>>
+  CASE_TAC>>fs[]>>
+  CASE_TAC>>fs[]>>
+  IF_CASES_TAC>>fs[evaluate_def,eval_def,FLOOKUP_UPDATE]>>
+  CASE_TAC>>fs[]>>
+  CASE_TAC>>fs[]>>
+  CASE_TAC>>fs[FLOOKUP_UPDATE]>>
+  CASE_TAC>>fs[shape_of_def, size_of_shape_def]>>
+  fs[evaluate_def,eval_def,shape_of_def, size_of_shape_def]
+QED
+
 val _ = export_theory();
