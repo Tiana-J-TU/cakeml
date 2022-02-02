@@ -79,6 +79,30 @@ Definition uart_ffi_state:
    |> :uart_ffi ffi_state 
 End
 
+Theorem lkjblk:
+  panSem$evaluate (ExtCall (strlit $ "write_reg_UTXH") (strlit "a1") (strlit "l1") (strlit "a2") (strlit "l2"),s) = (NONE,s') ∧
+  s.ffi = uart_ffi_state ⇒
+  ∃conf bytes. s'.ffi.io_events = [IO_event "write_reg_UTXH" conf (ZIP (bytes,bytes))] ∧
+                s'.ffi.ffi_state = s.ffi.ffi_state
+Proof
+  rw[evaluate_def] >>
+  gvs[AllCaseEqs()] >>
+  gvs[ffiTheory.call_FFI_def,AllCaseEqs()] >>
+  gvs[uart_ffi_oracle,uart_ffi_state] >>
+
+  (* manual instantiation *)
+  qexists_tac ‘bytes2’ >> simp[]
+
+  (* manual instantiation *)
+  qexists_tac ‘bytes2’ >> MATCH_ACCEPT_TAC EQ_REFL
+
+  (* automation *)
+  metis_tac[]
+
+  (* pattern-based rule application *)
+  irule_at (Pos hd) EQ_REFL
+QED
+
 Theorem uart_drv_getcharFun_ready_read:        
 (*        
 Theorem uart_drv_getcharFun_no_break:
@@ -93,6 +117,23 @@ Proof
   (* TODO *)
 QED
 *)
+
+Theorem LFINITE_eventually_LNIL:
+  LFINITE ll ⇒
+  eventually ($= [||]) ll
+Proof
+  qspec_then ‘ll’ strip_assume_tac fromList_fromSeq >>
+  rw[] >>
+  Induct_on ‘l’ >>
+  rw[]
+QED
+
+Theorem LFINITE_eventually_LNIL2:
+  ll = LUNFOLD (λn. SOME(SUC n, n)) 0 ⇒
+  eventually ($= (SOME 5) o LHD) ll
+Proof
+  rpt (rw[Once LUNFOLD])
+QED
 
 Theorem uart_drv_getcharFun_no_break:
   ∀ck be mem memaddrs ffi base_addr res s.
