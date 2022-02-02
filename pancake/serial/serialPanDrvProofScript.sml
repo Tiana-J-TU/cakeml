@@ -21,6 +21,65 @@ Definition uart_init_state_def:
     |>
 End
 
+val _ = Datatype ‘
+  reg32=
+  <| byte1 : word8 ;
+     byte2 : word8 ;
+     byte3 : word8 ;
+     byte4 : word8 ;
+   |>’
+
+(* :'ffi *)
+val _ = Datatype ‘
+  uart_ffi=
+  <| utrstat : reg32 llist ;
+     rxbuf   : reg32 llist ;
+   |>’
+
+Definition init_uart_ffi:
+  init_uart_ffi= <| utrstat := [||]; rxbuf := [||] |>
+End              
+(* val _ = Datatype ‘
+  uart_ffi=
+  <| utrstat : word32 llist ;
+     rxbuf   : word32 llist ;
+   |>’
+*)
+   
+Definition uart_ffi_oracle:
+  (uart_ffi_oracle :uart_ffi oracle) port st conf bytes=
+  case port of
+    "write_reg_UTXH" => (if LENGTH conf >= 0 then Oracle_return st bytes
+                           (* Modify to update io_event list. *)
+                         else Oracle_final FFI_failed)                             
+  | "read_reg_UTRSTAT" => (
+      if LENGTH bytes >= 4 then
+        case st.utrstat of
+          [||] => Oracle_final FFI_failed
+        | hd:::tl =>
+            Oracle_return (st with utrstat := tl)
+              [hd.byte1; hd.byte2; hd.byte3; hd.byte4]
+      else Oracle_final FFI_failed)      
+  | "read_reg_URXH" => (
+      if LENGTH bytes >= 4 then
+        case st.rxbuf of
+          [||] => Oracle_final FFI_failed
+        | hd:::tl =>                             
+                Oracle_return (st with rxbuf := tl)
+                  [hd.byte1; hd.byte2; hd.byte3; hd.byte4]
+      else Oracle_final FFI_failed)                      
+  | _ => Oracle_final FFI_failed
+End
+   
+Definition uart_ffi_state:
+  uart_ffi_state=
+  <| oracle := uart_ffi_oracle;
+     ffi_state := init_uart_ffi;
+     io_events := [];
+   |> :uart_ffi ffi_state 
+End
+
+Theorem uart_drv_getcharFun_ready_read:        
 (*        
 Theorem uart_drv_getcharFun_no_break:
   ∀ck be mem memaddrs ffi res s.
@@ -151,6 +210,18 @@ Proof
      unabbrev_all_tac >> simp []
 QED
 
+(*
+simp[Once evaluate_def]         
+simp [eval_def]
+simp [eval_def, wordLangTheory.word_op_def]
+simp [eval_def, OPT_MMAP_def, wordLangTheory.word_op_def, FLOOKUP_UPDATE]
+simp [OPT_MMAP_def]
+simp [wordLangTheory.word_op_def]
+simp [eval_def, OPTION_BIND_def]
+simp[eval_def, FLOOKUP_UPDATE] >>
+simp [OPTION_MAP_DEF]
+simp [fcpTheory.dimindex_def, wordLangTheory.word_sh_def]
+*)
 
 Theorem uart_drv_getcharFun_no_error:
   ∀ck be mem memaddrs ffi base_addr res s.
@@ -386,5 +457,59 @@ Proof
   unabbrev_all_tac >> simp [flookup_fupdate_list, FLOOKUP_UPDATE] >>
 
   cheat 
-QED  
+QED
+
+Theorem uart_drv_getcharFun_no_break:
+  ∀ck be mem memaddrs ffi base_addr res s c.
+    preconditions ⇒
+    case
+      evaluate (Call Tail (Label (strlit "uart_drv_putchar")) [Const $ n2w c],
+                  uart_init_state ck be mem memaddrs ffi base_addr)
+    of
+      (SOME Break, s') => F
+    | _ => T                  
+Proof
+  rpt strip_tac >>
+  simp[Once evaluate_def,uart_init_state_def,serialProg_def,
+     uart_drv_getcharFun_def, uart_drv_putcharFun_def] >>
+  simp[Once eval_def,flookup_fupdate_list,ALOOKUP_def,OPT_MMAP_def,lookup_code_def] >>
+  simp [eval_def, OPTION_BIND_def, shape_of_def] >>
+  simp [Once evaluate_def] >>
+  qmatch_goalsub_abbrev_tac ‘a1 (evaluate _)’ >>
+  simp[Once evaluate_def] >>
+  simp[eval_def,dec_clock_def, flookup_fupdate_list] >>
+  qmatch_goalsub_abbrev_tac ‘a2 (evaluate _)’ >>
+  simp[Once evaluate_def,eval_def, OPT_MMAP_def,wordLangTheory.word_op_def] >>
+  simp[flookup_fupdate_list, FLOOKUP_UPDATE] >>
+  qmatch_goalsub_abbrev_tac ‘a3 (a4 (evaluate _))’ >>
+  simp[Once evaluate_def,eval_def] >>
+  simp[flookup_fupdate_list, FLOOKUP_UPDATE] >>
+  qmatch_goalsub_abbrev_tac ‘a5 (evaluate _)’ >>
+  simp[Once evaluate_def,eval_def] >>
+  Induct_on ‘ck’ >- (simp []) >>
+  simp[flookup_fupdate_list, FLOOKUP_UPDATE] >>
+  qmatch_goalsub_abbrev_tac ‘a6 (evaluate _)’ >>
+  simp[Once evaluate_def,eval_def] >>
+  qmatch_goalsub_abbrev_tac ‘a7 (evaluate _)’ >>
+  simp[Once evaluate_def,eval_def] >>
+  Cases_on ‘ck’ >- (unabbrev_all_tac >> simp []) >>
+  simp [] >>
+  qmatch_goalsub_abbrev_tac ‘a8 (evaluate _)’ >>
+  simp[Once evaluate_def,eval_def] >>
+  qmatch_goalsub_abbrev_tac ‘a9 (evaluate _)’ >>
+  simp[Once evaluate_def,eval_def] >>
+  qmatch_goalsub_abbrev_tac ‘a10 (evaluate _)’ >>
+  simp[eval_def,dec_clock_def, flookup_fupdate_list, FLOOKUP_UPDATE] >>
+  Cases_on ‘read_bytearray base_addr 8 (mem_load_byte mem' memaddrs be)’
+  >- (unabbrev_all_tac >> simp []) >>
+  simp [Abbr ‘a10’] >>
+  Cases_on ‘read_bytearray (base_addr + 64w) 32 (mem_load_byte mem' memaddrs be)’
+  >- unabbrev_all_tac >> simp [] >>
+  simp [] >> fs [flookup_fupdate_list, FLOOKUP_UPDATE] >>
+  Cases_on ‘call_FFI ffi "read_reg_UTRSTAT" x x'’ 
+  >> cheat  
+QED
+
+
+                  
 val _ = export_theory();
